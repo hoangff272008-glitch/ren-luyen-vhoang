@@ -13,6 +13,14 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
+  // --- Auth Route for frontend ---
+  app.get(api.auth.user.path, (req: any, res) => {
+    if (req.isAuthenticated()) {
+      return res.json(req.user);
+    }
+    res.json(null);
+  });
+
   // --- Protected Routes ---
 
   // --- Study Notes ---

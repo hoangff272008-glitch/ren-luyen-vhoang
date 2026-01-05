@@ -15,7 +15,7 @@ export const sessions = pgTable(
 );
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey(), // Replit Auth ID is a string
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
@@ -29,11 +29,11 @@ export const users = pgTable("users", {
 // Study Notes
 export const studyNotes = pgTable("study_notes", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull(), // Linked to Replit Auth User ID
+  userId: varchar("user_id").notNull(),
   subject: text("subject").notNull(),
   title: text("title").notNull(),
   content: text("content").notNull(),
-  importance: text("importance").default("normal"), // low, normal, high
+  importance: text("importance").default("normal"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -52,9 +52,9 @@ export const healthLogs = pgTable("health_logs", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull(),
   goalId: integer("goal_id").notNull(),
-  date: text("date").notNull(), // YYYY-MM-DD
+  date: text("date").notNull(),
   isCompleted: boolean("is_completed").default(false),
-  notes: text("notes"), // Punishments or reflections
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -63,14 +63,14 @@ export const dailyActivities = pgTable("daily_activities", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull(),
   content: text("content").notNull(),
-  time: text("time"), // e.g. "08:00"
-  date: text("date").notNull(), // YYYY-MM-DD
+  time: text("time"),
+  date: text("date").notNull(),
   isDone: boolean("is_done").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Schemas
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertStudyNoteSchema = createInsertSchema(studyNotes).omit({ id: true, createdAt: true });
 export const insertHealthGoalSchema = createInsertSchema(healthGoals).omit({ id: true, createdAt: true });
 export const insertHealthLogSchema = createInsertSchema(healthLogs).omit({ id: true, createdAt: true });
