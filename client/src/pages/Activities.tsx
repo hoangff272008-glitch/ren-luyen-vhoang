@@ -1,34 +1,69 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Plus, Clock, Trash2 } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Clock, Calendar as CalendarIcon } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useDailyActivities, useCreateDailyActivity, useUpdateDailyActivity, useDeleteDailyActivity } from "@/hooks/use-daily-activities";
-import { insertDailyActivitySchema, type InsertDailyActivity } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { api, buildUrl } from "@shared/routes";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { DailyActivity, InsertDailyActivity } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
 export default function Activities() {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const { data: activities, isLoading } = useDailyActivities(today);
-  const createMutation = useCreateDailyActivity();
-  const updateMutation = useUpdateDailyActivity();
-  const deleteMutation = useDeleteDailyActivity();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const formattedDate = format(selectedDate, "yyyy-MM-dd");
+  const { toast } = useToast();
 
-  const form = useForm<InsertDailyActivity>({
-    resolver: zodResolver(insertDailyActivitySchema),
-    defaultValues: { content: "", time: "", date: today, isDone: false }
+  const { data: activities, isLoading } = useQuery<DailyActivity[]>({
+    queryKey: [api.dailyActivities.list.path, { date: formattedDate }],
   });
 
-  const onSubmit = (data: InsertDailyActivity) => {
-    createMutation.mutate(data, {
-      onSuccess: () => form.reset({ ...data, content: "", time: "" })
-    });
+  const createActivity = useMutation({
+    mutationFn: async (data: Omit<InsertDailyActivity, "userId" | "date">) => {
+      return apiRequest("POST", api.dailyActivities.create.path, { ...data, date: formattedDate });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.dailyActivities.list.path] });
+      setIsAddDialogOpen(false);
+      setNewActivity({ content: "", time: "" });
+      toast({ title: "Đã thêm hoạt động mới" });
+    },
+  });
+
+  const updateActivity = useMutation({
+    mutationFn: async ({ id, isDone }: { id: number; isDone: boolean }) => {
+      return apiRequest("PUT", buildUrl(api.dailyActivities.update.path, { id }), { isDone });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.dailyActivities.list.path] });
+    },
+  });
+
+  const deleteActivity = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", buildUrl(api.dailyActivities.delete.path, { id }));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.dailyActivities.list.path] });
+      toast({ title: "Đã xóa hoạt động" });
+    },
+  });
+
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newActivity, setNewActivity] = useState({ content: "", time: "" });
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newActivity.content) return;
+    createActivity.mutate(newActivity);
   };
 
   const sortedActivities = activities?.sort((a, b) => {
@@ -38,105 +73,125 @@ export default function Activities() {
   });
 
   return (
-    <div className="min-h-screen pt-32 px-4 pb-20 max-w-4xl mx-auto">
-      <div className="text-center mb-10">
-        <h1 className="text-4xl font-display font-bold flex items-center justify-center gap-3 mb-2">
-          <span className="p-2 rounded-xl bg-amber-100 text-amber-600"><Activity size={32} /></span>
-          Hoạt động mỗi ngày
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          {format(new Date(), "EEEE, dd 'tháng' MM, yyyy", { locale: vi })}
-        </p>
-      </div>
+    <div className="max-w-4xl mx-auto space-y-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+          <h1 className="text-4xl font-display font-bold flex items-center gap-3">
+            <span className="p-2 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300">
+              <CheckSquare size={32} />
+            </span>
+            Hoạt động hàng ngày
+          </h1>
+          <p className="text-muted-foreground mt-2 text-lg">
+            {format(selectedDate, "eeee, dd MMMM yyyy", { locale: vi })}
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Input Column */}
-        <div className="md:col-span-1">
-          <div className="glass-panel p-6 rounded-3xl sticky top-24">
-            <h2 className="text-lg font-bold mb-4">Thêm hoạt động</h2>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="lg" className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white border-0 shadow-lg shadow-amber-500/25">
+              <Plus className="mr-2 h-5 w-5" /> Thêm hoạt động
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="glass-panel">
+            <DialogHeader>
+              <DialogTitle>Thêm hoạt động mới</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAdd} className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Nội dung</Label>
                 <Input 
-                  type="time" 
-                  {...form.register("time")} 
-                  className="rounded-xl bg-white/50" 
+                  value={newActivity.content} 
+                  onChange={(e) => setNewActivity({ ...newActivity, content: e.target.value })}
+                  placeholder="Ví dụ: Ăn sáng, Học bài..." 
+                  className="rounded-xl"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
+                <Label>Thời gian (tùy chọn)</Label>
                 <Input 
-                  {...form.register("content")} 
-                  placeholder="Làm gì..." 
-                  className="rounded-xl bg-white/50" 
+                  type="time"
+                  value={newActivity.time} 
+                  onChange={(e) => setNewActivity({ ...newActivity, time: e.target.value })}
+                  className="rounded-xl"
                 />
-                {form.formState.errors.content && (
-                  <p className="text-red-500 text-xs mt-1">{form.formState.errors.content.message}</p>
-                )}
               </div>
-              <Button type="submit" disabled={createMutation.isPending} className="w-full rounded-xl bg-amber-500 hover:bg-amber-600 text-white">
-                <Plus className="mr-2 h-4 w-4" /> Thêm
+              <Button type="submit" disabled={createActivity.isPending} className="w-full rounded-xl bg-amber-500 hover:bg-amber-600">
+                Thêm vào danh sách
               </Button>
             </form>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        {/* Timeline Column */}
-        <div className="md:col-span-2">
-          <div className="glass-panel p-6 rounded-3xl min-h-[400px]">
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1,2,3].map(i => <div key={i} className="h-16 bg-black/5 rounded-xl animate-pulse" />)}
-              </div>
-            ) : sortedActivities?.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-60">
-                <p>Trống trơn...</p>
-                <p className="text-sm">Hãy thêm kế hoạch cho hôm nay!</p>
-              </div>
-            ) : (
-              <div className="space-y-4 relative">
-                {/* Timeline Line */}
-                <div className="absolute left-[27px] top-4 bottom-4 w-0.5 bg-gray-200 dark:bg-white/10 -z-10" />
+      <div className="space-y-4 relative before:absolute before:inset-0 before:left-8 before:w-0.5 before:bg-gradient-to-b before:from-amber-500/50 before:via-orange-500/50 before:to-transparent before:z-0">
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => <div key={i} className="h-24 rounded-2xl bg-white/30 animate-pulse ml-12" />)}
+          </div>
+        ) : sortedActivities?.length === 0 ? (
+          <div className="text-center py-20 glass-panel rounded-3xl ml-12">
+            <CalendarIcon className="w-16 h-16 mx-auto mb-4 opacity-20" />
+            <p className="text-muted-foreground">Chưa có hoạt động nào cho ngày này.</p>
+          </div>
+        ) : (
+          <AnimatePresence mode="popLayout">
+            {sortedActivities?.map((activity) => (
+              <motion.div
+                key={activity.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative z-10 flex items-start gap-6 group"
+              >
+                <div className={cn(
+                  "mt-6 w-4 h-4 rounded-full border-4 border-background transition-colors duration-300 shrink-0",
+                  activity.isDone ? "bg-green-500" : "bg-amber-500"
+                )} />
                 
-                <AnimatePresence>
-                  {sortedActivities?.map((activity) => (
-                    <motion.div
-                      key={activity.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className={cn(
-                        "flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md bg-white/80 dark:bg-black/20",
-                        activity.isDone ? "opacity-60 border-transparent bg-gray-50/50" : "border-white/40"
-                      )}
-                    >
+                <Card className={cn(
+                  "flex-1 rounded-2xl border-0 shadow-sm transition-all duration-300 hover:shadow-md",
+                  activity.isDone ? "bg-green-50/50 dark:bg-green-900/10 opacity-75" : "bg-card/80 backdrop-blur-sm"
+                )}>
+                  <CardContent className="p-5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
                       <Checkbox 
-                        checked={activity.isDone || false}
-                        onCheckedChange={(checked) => updateMutation.mutate({ id: activity.id, isDone: !!checked })}
-                        className="w-6 h-6 rounded-full border-2 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                        checked={activity.isDone || false} 
+                        onCheckedChange={(checked) => updateActivity.mutate({ id: activity.id, isDone: !!checked })}
+                        className="h-6 w-6 rounded-lg border-2"
                       />
-                      
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wide mb-0.5">
-                          <Clock size={12} />
-                          {activity.time || "Mọi lúc"}
+                        <div className="flex items-center gap-2 mb-0.5">
+                          {activity.time && (
+                            <span className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                              <Clock size={12} />
+                              {activity.time}
+                            </span>
+                          )}
+                          <p className={cn(
+                            "text-lg font-semibold transition-all duration-300",
+                            activity.isDone && "line-through text-muted-foreground"
+                          )}>
+                            {activity.content}
+                          </p>
                         </div>
-                        <p className={cn("font-medium text-lg", activity.isDone && "line-through text-muted-foreground")}>
-                          {activity.content}
-                        </p>
                       </div>
-
-                      <button 
-                        onClick={() => deleteMutation.mutate(activity.id)}
-                        className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
-        </div>
+                    </div>
+                    
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
+                      onClick={() => deleteActivity.mutate(activity.id)}
+                    >
+                      <Trash2 size={18} />
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );
