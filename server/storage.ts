@@ -6,99 +6,102 @@ import {
   type DailyActivity, type InsertDailyActivity
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   // Study Notes
-  getStudyNotes(): Promise<StudyNote[]>;
-  createStudyNote(note: InsertStudyNote): Promise<StudyNote>;
-  deleteStudyNote(id: number): Promise<void>;
+  getStudyNotes(userId: string): Promise<StudyNote[]>;
+  createStudyNote(userId: string, note: Omit<InsertStudyNote, 'userId'>): Promise<StudyNote>;
+  deleteStudyNote(userId: string, id: number): Promise<void>;
 
   // Health Goals
-  getHealthGoals(): Promise<HealthGoal[]>;
-  createHealthGoal(goal: InsertHealthGoal): Promise<HealthGoal>;
+  getHealthGoals(userId: string): Promise<HealthGoal[]>;
+  createHealthGoal(userId: string, goal: Omit<InsertHealthGoal, 'userId'>): Promise<HealthGoal>;
+  deleteHealthGoal(userId: string, id: number): Promise<void>;
 
   // Health Logs
-  getHealthLogs(goalId?: number): Promise<HealthLog[]>;
-  createHealthLog(log: InsertHealthLog): Promise<HealthLog>;
-  updateHealthLog(id: number, updates: Partial<InsertHealthLog>): Promise<HealthLog>;
+  getHealthLogs(userId: string, goalId?: number): Promise<HealthLog[]>;
+  createHealthLog(userId: string, log: Omit<InsertHealthLog, 'userId'>): Promise<HealthLog>;
+  updateHealthLog(userId: string, id: number, updates: Partial<Omit<InsertHealthLog, 'userId'>>): Promise<HealthLog>;
 
   // Daily Activities
-  getDailyActivities(date?: string): Promise<DailyActivity[]>;
-  createDailyActivity(activity: InsertDailyActivity): Promise<DailyActivity>;
-  updateDailyActivity(id: number, updates: Partial<InsertDailyActivity>): Promise<DailyActivity>;
-  deleteDailyActivity(id: number): Promise<void>;
+  getDailyActivities(userId: string, date?: string): Promise<DailyActivity[]>;
+  createDailyActivity(userId: string, activity: Omit<InsertDailyActivity, 'userId'>): Promise<DailyActivity>;
+  updateDailyActivity(userId: string, id: number, updates: Partial<Omit<InsertDailyActivity, 'userId'>>): Promise<DailyActivity>;
+  deleteDailyActivity(userId: string, id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
   // Study Notes
-  async getStudyNotes(): Promise<StudyNote[]> {
-    return await db.select().from(studyNotes).orderBy(desc(studyNotes.createdAt));
+  async getStudyNotes(userId: string): Promise<StudyNote[]> {
+    return await db.select().from(studyNotes).where(eq(studyNotes.userId, userId)).orderBy(desc(studyNotes.createdAt));
   }
 
-  async createStudyNote(note: InsertStudyNote): Promise<StudyNote> {
-    const [newNote] = await db.insert(studyNotes).values(note).returning();
+  async createStudyNote(userId: string, note: Omit<InsertStudyNote, 'userId'>): Promise<StudyNote> {
+    const [newNote] = await db.insert(studyNotes).values({ ...note, userId }).returning();
     return newNote;
   }
 
-  async deleteStudyNote(id: number): Promise<void> {
-    await db.delete(studyNotes).where(eq(studyNotes.id, id));
+  async deleteStudyNote(userId: string, id: number): Promise<void> {
+    await db.delete(studyNotes).where(and(eq(studyNotes.id, id), eq(studyNotes.userId, userId)));
   }
 
   // Health Goals
-  async getHealthGoals(): Promise<HealthGoal[]> {
-    return await db.select().from(healthGoals).orderBy(healthGoals.id);
+  async getHealthGoals(userId: string): Promise<HealthGoal[]> {
+    return await db.select().from(healthGoals).where(eq(healthGoals.userId, userId)).orderBy(healthGoals.id);
   }
 
-  async createHealthGoal(goal: InsertHealthGoal): Promise<HealthGoal> {
-    const [newGoal] = await db.insert(healthGoals).values(goal).returning();
+  async createHealthGoal(userId: string, goal: Omit<InsertHealthGoal, 'userId'>): Promise<HealthGoal> {
+    const [newGoal] = await db.insert(healthGoals).values({ ...goal, userId }).returning();
     return newGoal;
   }
 
-  // Health Logs
-  async getHealthLogs(goalId?: number): Promise<HealthLog[]> {
-    if (goalId) {
-      return await db.select().from(healthLogs).where(eq(healthLogs.goalId, goalId)).orderBy(desc(healthLogs.date));
-    }
-    return await db.select().from(healthLogs).orderBy(desc(healthLogs.date));
+  async deleteHealthGoal(userId: string, id: number): Promise<void> {
+    await db.delete(healthGoals).where(and(eq(healthGoals.id, id), eq(healthGoals.userId, userId)));
   }
 
-  async createHealthLog(log: InsertHealthLog): Promise<HealthLog> {
-    const [newLog] = await db.insert(healthLogs).values(log).returning();
+  // Health Logs
+  async getHealthLogs(userId: string, goalId?: number): Promise<HealthLog[]> {
+    const conditions = [eq(healthLogs.userId, userId)];
+    if (goalId) conditions.push(eq(healthLogs.goalId, goalId));
+    return await db.select().from(healthLogs).where(and(...conditions)).orderBy(desc(healthLogs.date));
+  }
+
+  async createHealthLog(userId: string, log: Omit<InsertHealthLog, 'userId'>): Promise<HealthLog> {
+    const [newLog] = await db.insert(healthLogs).values({ ...log, userId }).returning();
     return newLog;
   }
 
-  async updateHealthLog(id: number, updates: Partial<InsertHealthLog>): Promise<HealthLog> {
+  async updateHealthLog(userId: string, id: number, updates: Partial<Omit<InsertHealthLog, 'userId'>>): Promise<HealthLog> {
     const [updatedLog] = await db.update(healthLogs)
       .set(updates)
-      .where(eq(healthLogs.id, id))
+      .where(and(eq(healthLogs.id, id), eq(healthLogs.userId, userId)))
       .returning();
     return updatedLog;
   }
 
   // Daily Activities
-  async getDailyActivities(date?: string): Promise<DailyActivity[]> {
-    if (date) {
-      return await db.select().from(dailyActivities).where(eq(dailyActivities.date, date)).orderBy(dailyActivities.time);
-    }
-    return await db.select().from(dailyActivities).orderBy(desc(dailyActivities.date), dailyActivities.time);
+  async getDailyActivities(userId: string, date?: string): Promise<DailyActivity[]> {
+    const conditions = [eq(dailyActivities.userId, userId)];
+    if (date) conditions.push(eq(dailyActivities.date, date));
+    return await db.select().from(dailyActivities).where(and(...conditions)).orderBy(dailyActivities.time);
   }
 
-  async createDailyActivity(activity: InsertDailyActivity): Promise<DailyActivity> {
-    const [newActivity] = await db.insert(dailyActivities).values(activity).returning();
+  async createDailyActivity(userId: string, activity: Omit<InsertDailyActivity, 'userId'>): Promise<DailyActivity> {
+    const [newActivity] = await db.insert(dailyActivities).values({ ...activity, userId }).returning();
     return newActivity;
   }
 
-  async updateDailyActivity(id: number, updates: Partial<InsertDailyActivity>): Promise<DailyActivity> {
+  async updateDailyActivity(userId: string, id: number, updates: Partial<Omit<InsertDailyActivity, 'userId'>>): Promise<DailyActivity> {
     const [updatedActivity] = await db.update(dailyActivities)
       .set(updates)
-      .where(eq(dailyActivities.id, id))
+      .where(and(eq(dailyActivities.id, id), eq(dailyActivities.userId, userId)))
       .returning();
     return updatedActivity;
   }
 
-  async deleteDailyActivity(id: number): Promise<void> {
-    await db.delete(dailyActivities).where(eq(dailyActivities.id, id));
+  async deleteDailyActivity(userId: string, id: number): Promise<void> {
+    await db.delete(dailyActivities).where(and(eq(dailyActivities.id, id), eq(dailyActivities.userId, userId)));
   }
 }
 
