@@ -4,27 +4,57 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale";
 import { motion } from "framer-motion";
-import { Heart, Plus, Trophy, Calendar as CalendarIcon, CheckCircle2, Circle } from "lucide-react";
+import { Heart, Plus, Trophy, CheckCircle2, Circle } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useHealthGoals, useHealthLogs, useCreateHealthGoal, useCreateHealthLog, useUpdateHealthLog } from "@/hooks/use-health";
-import { insertHealthGoalSchema, insertHealthLogSchema, type InsertHealthGoal } from "@shared/schema";
+import { insertHealthGoalSchema, type HealthGoal, type HealthLog, type InsertHealthGoal } from "@shared/schema";
+import { api, buildUrl } from "@shared/routes";
 import { cn } from "@/lib/utils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Health() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const formattedDate = format(selectedDate, "yyyy-MM-dd");
+  const { toast } = useToast();
 
-  const { data: goals, isLoading: goalsLoading } = useHealthGoals();
-  const { data: logs, isLoading: logsLoading } = useHealthLogs({ date: formattedDate });
+  const { data: goals, isLoading: goalsLoading } = useQuery<HealthGoal[]>({
+    queryKey: [api.healthGoals.list.path],
+  });
+
+  const { data: logs, isLoading: logsLoading } = useQuery<HealthLog[]>({
+    queryKey: [api.healthLogs.list.path],
+  });
   
-  const createGoal = useCreateHealthGoal();
-  const createLog = useCreateHealthLog();
-  const updateLog = useUpdateHealthLog();
+  const createGoal = useMutation({
+    mutationFn: async (data: InsertHealthGoal) => {
+      return apiRequest("POST", api.healthGoals.create.path, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.healthGoals.list.path] });
+      setIsGoalDialogOpen(false);
+      goalForm.reset();
+      toast({ title: "Đã thêm mục tiêu mới" });
+    }
+  });
+
+  const updateLog = useMutation({
+    mutationFn: async ({ id, goalId, date, isCompleted, notes }: { id?: number; goalId: number; date: string; isCompleted: boolean; notes?: string }) => {
+      if (id) {
+        return apiRequest("PUT", buildUrl(api.healthLogs.update.path, { id }), { isCompleted, notes });
+      } else {
+        return apiRequest("POST", api.healthLogs.create.path, { goalId, date, isCompleted, notes });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.healthLogs.list.path] });
+    },
+  });
   
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
   const goalForm = useForm<InsertHealthGoal>({
@@ -33,45 +63,34 @@ export default function Health() {
   });
 
   const onGoalSubmit = (data: InsertHealthGoal) => {
-    createGoal.mutate(data, {
-      onSuccess: () => {
-        setIsGoalDialogOpen(false);
-        goalForm.reset();
-      }
-    });
+    createGoal.mutate(data);
   };
 
   const handleToggle = (goalId: number, existingLog: any) => {
-    if (existingLog) {
-      updateLog.mutate({
-        id: existingLog.id,
-        isCompleted: !existingLog.isCompleted
-      });
-    } else {
-      createLog.mutate({
-        goalId,
-        date: formattedDate,
-        isCompleted: true,
-        notes: ""
-      });
-    }
+    updateLog.mutate({
+      id: existingLog?.id,
+      goalId,
+      date: formattedDate,
+      isCompleted: !existingLog?.isCompleted
+    });
   };
 
   const handleNotes = (goalId: number, notes: string, existingLog: any) => {
-    if (existingLog) {
-      updateLog.mutate({ id: existingLog.id, notes });
-    } else {
-      createLog.mutate({ goalId, date: formattedDate, isCompleted: false, notes });
-    }
+    updateLog.mutate({
+      id: existingLog?.id,
+      goalId,
+      date: formattedDate,
+      isCompleted: existingLog?.isCompleted ?? false,
+      notes
+    });
   };
 
-  // Generate week days
   const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }).map((_, i) => addDays(startOfCurrentWeek, i));
 
   return (
-    <div className="min-h-screen pt-32 px-4 pb-20 max-w-5xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+    <div className="max-w-5xl mx-auto space-y-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h1 className="text-4xl font-display font-bold flex items-center gap-3">
             <span className="p-2 rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300"><Heart size={32} /></span>
@@ -107,8 +126,7 @@ export default function Health() {
         </Dialog>
       </div>
 
-      {/* Week Calendar */}
-      <div className="glass-panel p-6 rounded-3xl mb-8 flex justify-between items-center overflow-x-auto gap-4">
+      <div className="glass-panel p-6 rounded-3xl flex justify-between items-center overflow-x-auto gap-4">
         {weekDays.map((date, i) => {
           const isSelected = isSameDay(date, selectedDate);
           const isToday = isSameDay(date, new Date());
@@ -137,7 +155,6 @@ export default function Health() {
         })}
       </div>
 
-      {/* Goals List */}
       <div className="space-y-4">
         {goalsLoading ? (
           <div className="h-40 rounded-3xl bg-white/30 animate-pulse" />
@@ -148,7 +165,7 @@ export default function Health() {
           </div>
         ) : (
           goals?.map((goal) => {
-            const log = logs?.find(l => l.goalId === goal.id);
+            const log = logs?.find(l => l.goalId === goal.id && l.date === formattedDate);
             const isCompleted = log?.isCompleted ?? false;
             
             return (
