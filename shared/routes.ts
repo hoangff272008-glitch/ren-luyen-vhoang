@@ -4,7 +4,6 @@ import {
   insertHealthGoalSchema, 
   insertHealthLogSchema, 
   insertDailyActivitySchema,
-  users,
   studyNotes,
   healthGoals,
   healthLogs,
@@ -28,15 +27,6 @@ export const errorSchemas = {
 };
 
 export const api = {
-  auth: {
-    user: {
-      method: 'GET' as const,
-      path: '/api/auth/user',
-      responses: {
-        200: z.custom<typeof users.$inferSelect>().nullable(),
-      },
-    },
-  },
   studyNotes: {
     list: {
       method: 'GET' as const,
@@ -48,7 +38,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/study-notes',
-      input: insertStudyNoteSchema.omit({ userId: true }),
+      input: insertStudyNoteSchema,
       responses: {
         201: z.custom<typeof studyNotes.$inferSelect>(),
         400: errorSchemas.validation,
@@ -74,7 +64,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/health-goals',
-      input: insertHealthGoalSchema.omit({ userId: true }),
+      input: insertHealthGoalSchema,
       responses: {
         201: z.custom<typeof healthGoals.$inferSelect>(),
         400: errorSchemas.validation,
@@ -104,7 +94,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/health-logs',
-      input: insertHealthLogSchema.omit({ userId: true }),
+      input: insertHealthLogSchema,
       responses: {
         201: z.custom<typeof healthLogs.$inferSelect>(),
         400: errorSchemas.validation,
@@ -113,7 +103,7 @@ export const api = {
     update: {
       method: 'PUT' as const,
       path: '/api/health-logs/:id',
-      input: insertHealthLogSchema.omit({ userId: true, goalId: true, date: true }).partial(),
+      input: insertHealthLogSchema.omit({ goalId: true, date: true }).partial(),
       responses: {
         200: z.custom<typeof healthLogs.$inferSelect>(),
         404: errorSchemas.notFound,
@@ -132,7 +122,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/daily-activities',
-      input: insertDailyActivitySchema.omit({ userId: true }),
+      input: insertDailyActivitySchema,
       responses: {
         201: z.custom<typeof dailyActivities.$inferSelect>(),
         400: errorSchemas.validation,
@@ -141,7 +131,7 @@ export const api = {
     update: {
       method: 'PUT' as const,
       path: '/api/daily-activities/:id',
-      input: insertDailyActivitySchema.omit({ userId: true, date: true }).partial(),
+      input: insertDailyActivitySchema.omit({ date: true }).partial(),
       responses: {
         200: z.custom<typeof dailyActivities.$inferSelect>(),
         404: errorSchemas.notFound,
