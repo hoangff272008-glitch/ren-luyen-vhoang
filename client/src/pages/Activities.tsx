@@ -2,7 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckSquare, Plus, Trash2, Clock, Calendar as CalendarIcon } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Clock, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,16 @@ export default function Activities() {
   const { toast } = useToast();
 
   const { data: activities, isLoading } = useQuery<DailyActivity[]>({
-    queryKey: [api.dailyActivities.list.path, { date: formattedDate }],
+    queryKey: [api.dailyActivities.list.path, formattedDate],
+    queryFn: async () => {
+      const res = await fetch(`${api.dailyActivities.list.path}?date=${formattedDate}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    }
   });
 
   const createActivity = useMutation({
-    mutationFn: async (data: Omit<InsertDailyActivity, "userId" | "date">) => {
+    mutationFn: async (data: Omit<InsertDailyActivity, "date">) => {
       return apiRequest("POST", api.dailyActivities.create.path, { ...data, date: formattedDate });
     },
     onSuccess: () => {
@@ -72,6 +77,12 @@ export default function Activities() {
     return a.time.localeCompare(b.time);
   });
 
+  const changeDate = (days: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    setSelectedDate(newDate);
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -82,9 +93,17 @@ export default function Activities() {
             </span>
             Hoạt động hàng ngày
           </h1>
-          <p className="text-muted-foreground mt-2 text-lg">
-            {format(selectedDate, "eeee, dd MMMM yyyy", { locale: vi })}
-          </p>
+          <div className="flex items-center gap-4 mt-2">
+            <Button variant="ghost" size="icon" onClick={() => changeDate(-1)} className="rounded-full">
+              <ChevronLeft size={20} />
+            </Button>
+            <p className="text-muted-foreground text-lg font-medium min-w-[200px] text-center">
+              {format(selectedDate, "eeee, dd MMMM yyyy", { locale: vi })}
+            </p>
+            <Button variant="ghost" size="icon" onClick={() => changeDate(1)} className="rounded-full">
+              <ChevronRight size={20} />
+            </Button>
+          </div>
         </div>
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -95,7 +114,7 @@ export default function Activities() {
           </DialogTrigger>
           <DialogContent className="glass-panel">
             <DialogHeader>
-              <DialogTitle>Thêm hoạt động mới</DialogTitle>
+              <DialogTitle>Thêm hoạt động mới cho ngày {format(selectedDate, "dd/MM")}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAdd} className="space-y-4 mt-4">
               <div className="space-y-2">
