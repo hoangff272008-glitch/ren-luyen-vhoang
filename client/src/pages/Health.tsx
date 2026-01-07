@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale";
 import { motion } from "framer-motion";
-import { Heart, Plus, Trophy, CheckCircle2, Circle } from "lucide-react";
+import { Heart, Plus, Trophy, CheckCircle2, Circle, Sparkles } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,35 @@ import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+// Fun sound effect
+const playSuccessSound = () => {
+  const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3");
+  audio.volume = 0.3;
+  audio.play().catch(() => {});
+};
+
+const SparkleEffect = () => (
+  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    {[...Array(6)].map((_, i) => (
+      <div 
+        key={i} 
+        className="sparkle-particle"
+        style={{
+          left: `${Math.random() * 100}%`,
+          top: `${Math.random() * 100}%`,
+          animationDelay: `${Math.random() * 0.5}s`,
+          backgroundColor: i % 2 === 0 ? '#fb7185' : '#fff'
+        }}
+      />
+    ))}
+  </div>
+);
+
 export default function Health() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const formattedDate = format(selectedDate, "yyyy-MM-dd");
   const { toast } = useToast();
+  const [sparklingId, setSparklingId] = useState<number | null>(null);
 
   const { data: goals, isLoading: goalsLoading } = useQuery<HealthGoal[]>({
     queryKey: [api.healthGoals.list.path],
@@ -51,8 +76,13 @@ export default function Health() {
         return apiRequest("POST", api.healthLogs.create.path, { goalId, date, isCompleted, notes });
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [api.healthLogs.list.path] });
+      if (variables.isCompleted) {
+        playSuccessSound();
+        setSparklingId(variables.goalId);
+        setTimeout(() => setSparklingId(null), 1000);
+      }
     },
   });
   
@@ -173,10 +203,11 @@ export default function Health() {
                 key={goal.id}
                 layout
                 className={cn(
-                  "glass-card p-6 rounded-3xl border-l-8 transition-all duration-500",
+                  "glass-card p-6 rounded-3xl border-l-8 transition-all duration-500 relative overflow-hidden",
                   isCompleted ? "border-l-green-500 bg-green-50/50 dark:bg-green-900/10" : "border-l-rose-500"
                 )}
               >
+                {sparklingId === goal.id && <SparkleEffect />}
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">

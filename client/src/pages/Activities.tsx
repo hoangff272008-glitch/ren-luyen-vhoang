@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckSquare, Plus, Trash2, Clock, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Clock, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,35 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { DailyActivity, InsertDailyActivity } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
+// Fun sound effect
+const playSuccessSound = () => {
+  const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3");
+  audio.volume = 0.3;
+  audio.play().catch(() => {}); // Ignore auto-play blocking
+};
+
+const SparkleEffect = () => (
+  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    {[...Array(6)].map((_, i) => (
+      <div 
+        key={i} 
+        className="sparkle-particle"
+        style={{
+          left: `${Math.random() * 100}%`,
+          top: `${Math.random() * 100}%`,
+          animationDelay: `${Math.random() * 0.5}s`,
+          backgroundColor: i % 2 === 0 ? '#fbbf24' : '#fff'
+        }}
+      />
+    ))}
+  </div>
+);
+
 export default function Activities() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const formattedDate = format(selectedDate, "yyyy-MM-dd");
   const { toast } = useToast();
+  const [sparklingId, setSparklingId] = useState<number | null>(null);
 
   const { data: activities, isLoading } = useQuery<DailyActivity[]>({
     queryKey: [api.dailyActivities.list.path, formattedDate],
@@ -47,8 +72,13 @@ export default function Activities() {
     mutationFn: async ({ id, isDone }: { id: number; isDone: boolean }) => {
       return apiRequest("PUT", buildUrl(api.dailyActivities.update.path, { id }), { isDone });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [api.dailyActivities.list.path] });
+      if (variables.isDone) {
+        playSuccessSound();
+        setSparklingId(variables.id);
+        setTimeout(() => setSparklingId(null), 1000);
+      }
     },
   });
 
@@ -169,9 +199,10 @@ export default function Activities() {
                 )} />
                 
                 <Card className={cn(
-                  "flex-1 rounded-2xl border-0 shadow-sm transition-all duration-300 hover:shadow-md",
+                  "flex-1 rounded-2xl border-0 shadow-sm transition-all duration-300 hover:shadow-md relative overflow-hidden",
                   activity.isDone ? "bg-green-50/50 dark:bg-green-900/10 opacity-75" : "bg-card/80 backdrop-blur-sm"
                 )}>
+                  {sparklingId === activity.id && <SparkleEffect />}
                   <CardContent className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <Checkbox 
