@@ -44,13 +44,13 @@ function Router() {
 }
 
 function AppContent() {
-  const style = {
+  const sidebarStyle = {
     "--sidebar-width": "18rem",
     "--sidebar-width-icon": "4rem",
   } as React.CSSProperties;
 
   return (
-    <SidebarProvider style={style}>
+    <SidebarProvider style={sidebarStyle}>
       <div className="flex h-screen w-full bg-background overflow-hidden">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
