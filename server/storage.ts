@@ -1,5 +1,5 @@
 import { 
-  studyNotes, healthGoals, healthLogs, dailyActivities,
+  studyNotes, healthGoals, healthLogs, dailyActivities, syncKeys,
   type StudyNote, type InsertStudyNote,
   type HealthGoal, type InsertHealthGoal,
   type HealthLog, type InsertHealthLog,
@@ -39,50 +39,6 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // ... existing methods ...
-
-  async getRandomQuote(): Promise<any> {
-    const defaultQuotes = [
-      { content: "Hành trình vạn dặm bắt đầu từ một bước chân nhỏ bé.", author: "Lão Tử" },
-      { content: "Kỷ luật là cầu nối giữa mục tiêu và thành tựu.", author: "Jim Rohn" },
-      { content: "Đừng chờ đợi cơ hội thuận lợi, hãy tự tạo ra nó.", author: "George Bernard Shaw" },
-      { content: "Học tập là hạt giống của kiến thức, kiến thức là hạt giống của hạnh phúc.", author: "Ngạn ngữ" }
-    ];
-    return defaultQuotes[Math.floor(Math.random() * defaultQuotes.length)];
-  }
-
-  async getAllData(): Promise<any> {
-    const notes = await this.getStudyNotes();
-    const goals = await this.getHealthGoals();
-    const logs = await this.getHealthLogs();
-    const activities = await this.getDailyActivities();
-    return { notes, goals, logs, activities };
-  }
-
-  async createSyncKey(data: any): Promise<string> {
-    const key = Math.random().toString(36).substring(2, 10).toUpperCase();
-    await db.insert(syncKeys).values({ key, data });
-    return key;
-  }
-
-  async getSyncData(key: string): Promise<any> {
-    const [result] = await db.select().from(syncKeys).where(eq(syncKeys.key, key));
-    return result?.data;
-  }
-
-  async restoreData(data: any): Promise<void> {
-    // Basic restore logic - in a real app we'd handle conflicts
-    if (data.notes) {
-      await db.delete(studyNotes);
-      if (data.notes.length > 0) await db.insert(studyNotes).values(data.notes);
-    }
-    if (data.goals) {
-      await db.delete(healthGoals);
-      if (data.goals.length > 0) await db.insert(healthGoals).values(data.goals);
-    }
-    // ... continue for other tables
-  }
-}
   // Study Notes
   async getStudyNotes(): Promise<StudyNote[]> {
     return await db.select().from(studyNotes).orderBy(desc(studyNotes.createdAt));
@@ -161,6 +117,55 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDailyActivity(id: number): Promise<void> {
     await db.delete(dailyActivities).where(eq(dailyActivities.id, id));
+  }
+
+  // Sync & Quotes
+  async getRandomQuote(): Promise<any> {
+    const defaultQuotes = [
+      { content: "Hành trình vạn dặm bắt đầu từ một bước chân nhỏ bé.", author: "Lão Tử" },
+      { content: "Kỷ luật là cầu nối giữa mục tiêu và thành tựu.", author: "Jim Rohn" },
+      { content: "Đừng chờ đợi cơ hội thuận lợi, hãy tự tạo ra nó.", author: "George Bernard Shaw" },
+      { content: "Học tập là hạt giống của kiến thức, kiến thức là hạt giống của hạnh phúc.", author: "Ngạn ngữ" }
+    ];
+    return defaultQuotes[Math.floor(Math.random() * defaultQuotes.length)];
+  }
+
+  async getAllData(): Promise<any> {
+    const notes = await this.getStudyNotes();
+    const goals = await this.getHealthGoals();
+    const logs = await this.getHealthLogs();
+    const activities = await this.getDailyActivities();
+    return { notes, goals, logs, activities };
+  }
+
+  async createSyncKey(data: any): Promise<string> {
+    const key = Math.random().toString(36).substring(2, 10).toUpperCase();
+    await db.insert(syncKeys).values({ key, data });
+    return key;
+  }
+
+  async getSyncData(key: string): Promise<any> {
+    const [result] = await db.select().from(syncKeys).where(eq(syncKeys.key, key));
+    return result?.data;
+  }
+
+  async restoreData(data: any): Promise<void> {
+    if (data.notes) {
+      await db.delete(studyNotes);
+      if (data.notes.length > 0) await db.insert(studyNotes).values(data.notes);
+    }
+    if (data.goals) {
+      await db.delete(healthGoals);
+      if (data.goals.length > 0) await db.insert(healthGoals).values(data.goals);
+    }
+    if (data.logs) {
+      await db.delete(healthLogs);
+      if (data.logs.length > 0) await db.insert(healthLogs).values(data.logs);
+    }
+    if (data.activities) {
+      await db.delete(dailyActivities);
+      if (data.activities.length > 0) await db.insert(dailyActivities).values(data.activities);
+    }
   }
 }
 
