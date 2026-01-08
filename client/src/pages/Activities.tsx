@@ -16,30 +16,7 @@ import { api, buildUrl } from "@shared/routes";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { DailyActivity, InsertDailyActivity } from "@shared/schema";
 import { cn } from "@/lib/utils";
-
-// Fun sound effect
-const playSuccessSound = () => {
-  const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3");
-  audio.volume = 0.3;
-  audio.play().catch(() => {}); // Ignore auto-play blocking
-};
-
-const SparkleEffect = () => (
-  <div className="absolute inset-0 pointer-events-none overflow-hidden">
-    {[...Array(6)].map((_, i) => (
-      <div 
-        key={i} 
-        className="sparkle-particle"
-        style={{
-          left: `${Math.random() * 100}%`,
-          top: `${Math.random() * 100}%`,
-          animationDelay: `${Math.random() * 0.5}s`,
-          backgroundColor: i % 2 === 0 ? '#fbbf24' : '#fff'
-        }}
-      />
-    ))}
-  </div>
-);
+import { effectsManager } from "@/lib/effects";
 
 export default function Activities() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -75,7 +52,7 @@ export default function Activities() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [api.dailyActivities.list.path] });
       if (variables.isDone) {
-        playSuccessSound();
+        effectsManager.playSuccess();
         setSparklingId(variables.id);
         setTimeout(() => setSparklingId(null), 1000);
       }
@@ -202,7 +179,25 @@ export default function Activities() {
                   "flex-1 rounded-2xl border-0 shadow-sm transition-all duration-300 hover:shadow-md relative overflow-hidden",
                   activity.isDone ? "bg-green-50/50 dark:bg-green-900/10 opacity-75" : "bg-card/80 backdrop-blur-sm"
                 )}>
-                  {sparklingId === activity.id && <SparkleEffect />}
+                  {sparklingId === activity.id && (
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                      {[...Array(12)].map((_, i) => (
+                        <motion.div 
+                          key={i} 
+                          initial={{ scale: 0, opacity: 1 }}
+                          animate={{ scale: [0, 1.5, 0], opacity: [1, 0.8, 0], y: -50, x: (Math.random() - 0.5) * 100 }}
+                          transition={{ duration: 1 }}
+                          className="absolute w-2 h-2 rounded-full"
+                          style={{
+                            left: `${50 + (Math.random() - 0.5) * 40}%`,
+                            top: `${50 + (Math.random() - 0.5) * 40}%`,
+                            backgroundColor: i % 2 === 0 ? '#fbbf24' : '#fff',
+                            boxShadow: '0 0 10px #fbbf24'
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
                   <CardContent className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <Checkbox 

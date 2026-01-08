@@ -17,30 +17,7 @@ import { api, buildUrl } from "@shared/routes";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-
-// Fun sound effect
-const playSuccessSound = () => {
-  const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3");
-  audio.volume = 0.3;
-  audio.play().catch(() => {});
-};
-
-const SparkleEffect = () => (
-  <div className="absolute inset-0 pointer-events-none overflow-hidden">
-    {[...Array(6)].map((_, i) => (
-      <div 
-        key={i} 
-        className="sparkle-particle"
-        style={{
-          left: `${Math.random() * 100}%`,
-          top: `${Math.random() * 100}%`,
-          animationDelay: `${Math.random() * 0.5}s`,
-          backgroundColor: i % 2 === 0 ? '#fb7185' : '#fff'
-        }}
-      />
-    ))}
-  </div>
-);
+import { effectsManager } from "@/lib/effects";
 
 export default function Health() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -79,7 +56,7 @@ export default function Health() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [api.healthLogs.list.path] });
       if (variables.isCompleted) {
-        playSuccessSound();
+        effectsManager.playSuccess();
         setSparklingId(variables.goalId);
         setTimeout(() => setSparklingId(null), 1000);
       }
