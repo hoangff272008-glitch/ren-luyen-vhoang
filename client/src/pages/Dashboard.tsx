@@ -49,6 +49,7 @@ function Pomodoro() {
   const [minutes, setMinutes] = useState(25);
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(false);
+  const [customTime, setCustomTime] = useState("25");
 
   useEffect(() => {
     let interval: any;
@@ -69,6 +70,15 @@ function Pomodoro() {
     return () => clearInterval(interval);
   }, [isActive, minutes, seconds]);
 
+  const handleSetTime = () => {
+    const mins = parseInt(customTime);
+    if (!isNaN(mins) && mins > 0 && mins <= 120) {
+      setMinutes(mins);
+      setSeconds(0);
+      setIsActive(false);
+    }
+  };
+
   return (
     <Card className="glass-card overflow-hidden">
       <CardHeader className="bg-primary/10 pb-4">
@@ -81,6 +91,21 @@ function Pomodoro() {
         <div className="text-5xl font-display font-bold mb-6">
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </div>
+        
+        <div className="flex gap-2 mb-6">
+          <Input 
+            type="number" 
+            value={customTime} 
+            onChange={(e) => setCustomTime(e.target.value)}
+            className="rounded-xl text-center"
+            min="1"
+            max="120"
+          />
+          <Button variant="outline" onClick={handleSetTime} className="rounded-xl">
+            Đặt
+          </Button>
+        </div>
+
         <div className="flex gap-2 justify-center">
           <Button 
             onClick={() => setIsActive(!isActive)}
@@ -90,7 +115,7 @@ function Pomodoro() {
             {isActive ? "Tạm dừng" : "Bắt đầu"}
           </Button>
           <Button 
-            onClick={() => { setIsActive(false); setMinutes(25); setSeconds(0); }}
+            onClick={() => { setIsActive(false); setMinutes(parseInt(customTime) || 25); setSeconds(0); }}
             variant="ghost"
             className="rounded-xl"
           >
