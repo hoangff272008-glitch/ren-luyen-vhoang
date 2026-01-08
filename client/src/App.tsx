@@ -46,6 +46,21 @@ function Router() {
 }
 
 function AppContent() {
+  const [displayName, setDisplayName] = React.useState(() => localStorage.getItem("display-name") || "Việt Hoàng");
+
+  React.useEffect(() => {
+    const handleStorageChange = () => {
+      setDisplayName(localStorage.getItem("display-name") || "Việt Hoàng");
+    };
+    window.addEventListener("storage", handleStorageChange);
+    // Custom event for same-window updates
+    window.addEventListener("display-name-updated", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("display-name-updated", handleStorageChange);
+    };
+  }, []);
+
   const sidebarStyle = {
     "--sidebar-width": "18rem",
     "--sidebar-width-icon": "4rem",
@@ -59,10 +74,10 @@ function AppContent() {
           <header className="flex items-center justify-between px-6 border-b h-16 shrink-0 bg-card/50 backdrop-blur-sm z-10">
             <div className="flex items-center gap-4">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <h2 className="text-xl font-display font-bold truncate">Việt Hoàng</h2>
+              <h2 className="text-xl font-display font-bold truncate">{displayName}</h2>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-muted-foreground hidden md:inline-block">Xin chào Việt Hoàng!</span>
+              <span className="text-sm font-medium text-muted-foreground hidden md:inline-block">Xin chào {displayName}!</span>
               <ThemeToggle />
             </div>
           </header>

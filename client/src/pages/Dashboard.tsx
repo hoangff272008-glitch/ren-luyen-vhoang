@@ -131,6 +131,14 @@ export default function Dashboard() {
   const today = new Date();
   const { toast } = useToast();
   const [syncKey, setSyncKey] = useState("");
+  const [displayName, setDisplayName] = useState(() => localStorage.getItem("display-name") || "Việt Hoàng");
+
+  useEffect(() => {
+    const handleUpdate = () => setDisplayName(localStorage.getItem("display-name") || "Việt Hoàng");
+    window.addEventListener("display-name-updated", handleUpdate);
+    return () => window.removeEventListener("display-name-updated", handleUpdate);
+  }, []);
+
   const last7Days = Array.from({ length: 7 }).map((_, i) => format(subDays(today, i), "yyyy-MM-dd")).reverse();
 
   const { data: quote } = useQuery({
@@ -202,7 +210,7 @@ export default function Dashboard() {
             </span>
           </motion.div>
           <motion.h1 variants={item} className="text-4xl md:text-6xl font-display font-bold text-foreground">
-            Chào Việt Hoàng, <br />
+            Chào {displayName}, <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-accent">
               Hôm nay thế nào?
             </span>

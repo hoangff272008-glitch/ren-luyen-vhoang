@@ -8,11 +8,22 @@ import { Input } from "@/components/ui/input";
 import { api } from "@shared/routes";
 import type { DailyActivity } from "@shared/schema";
 import { cn } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { User } from "lucide-react";
 
 export default function Settings() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchDate, setSearchDate] = useState("");
+  const [searchMonth, setSearchMonth] = useState("");
+  const { toast } = useToast();
+  const [displayName, setDisplayName] = useState(() => localStorage.getItem("display-name") || "Việt Hoàng");
+
+  const handleNameChange = (newName: string) => {
+    setDisplayName(newName);
+    localStorage.setItem("display-name", newName);
+    window.dispatchEvent(new Event("display-name-updated"));
+    toast({ title: "Đã cập nhật tên hiển thị" });
+  };
 
   const { data: activities, isLoading } = useQuery<DailyActivity[]>({
     queryKey: [api.dailyActivities.list.path, "all"],
@@ -27,10 +38,10 @@ export default function Settings() {
     if (!activities) return [];
     return activities.filter(activity => {
       const matchesText = activity.content.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesDate = !searchDate || activity.date === searchDate;
-      return matchesText && matchesDate;
+      const matchesMonth = !searchMonth || activity.date.startsWith(searchMonth);
+      return matchesText && matchesMonth;
     });
-  }, [activities, searchTerm, searchDate]);
+  }, [activities, searchTerm, searchMonth]);
 
   const exportData = () => {
     if (!filteredActivities) return;
@@ -75,6 +86,30 @@ export default function Settings() {
       </div>
 
       <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="text-primary" size={20} />
+            Hồ sơ người dùng
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tên hiển thị</label>
+              <div className="flex gap-2">
+                <Input 
+                  value={displayName}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  placeholder="Nhập tên bạn muốn dùng..."
+                  className="rounded-xl max-w-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card">
         <CardHeader className="space-y-4">
           <CardTitle className="flex items-center gap-2">
             <FileText className="text-primary" size={20} />
@@ -93,10 +128,10 @@ export default function Settings() {
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input 
-                type="date"
+                type="month"
                 className="pl-10 rounded-xl"
-                value={searchDate}
-                onChange={(e) => setSearchDate(e.target.value)}
+                value={searchMonth}
+                onChange={(e) => setSearchMonth(e.target.value)}
               />
             </div>
           </div>
@@ -110,8 +145,8 @@ export default function Settings() {
             ) : filteredActivities.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <p>Không tìm thấy hoạt động nào phù hợp với bộ lọc.</p>
-                {(searchTerm || searchDate) && (
-                  <Button variant="link" onClick={() => { setSearchTerm(""); setSearchDate(""); }} className="mt-2">
+                {(searchTerm || searchMonth) && (
+                  <Button variant="link" onClick={() => { setSearchTerm(""); setSearchMonth(""); }} className="mt-2">
                     Xóa bộ lọc
                   </Button>
                 )}
