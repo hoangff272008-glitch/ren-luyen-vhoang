@@ -43,11 +43,28 @@ export const dailyActivities = pgTable("daily_activities", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Quotes
+export const quotes = pgTable("quotes", {
+  id: serial("id").primaryKey(),
+  content: text("content").notNull(),
+  author: text("author"),
+});
+
+// Sync Keys
+export const syncKeys = pgTable("sync_keys", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 8 }).notNull().unique(),
+  data: jsonb("data").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Schemas
 export const insertStudyNoteSchema = createInsertSchema(studyNotes).omit({ id: true, createdAt: true });
 export const insertHealthGoalSchema = createInsertSchema(healthGoals).omit({ id: true, createdAt: true });
 export const insertHealthLogSchema = createInsertSchema(healthLogs).omit({ id: true, createdAt: true });
 export const insertDailyActivitySchema = createInsertSchema(dailyActivities).omit({ id: true, createdAt: true });
+export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true });
+export const insertSyncKeySchema = createInsertSchema(syncKeys).omit({ id: true, updatedAt: true });
 
 // Types
 export type StudyNote = typeof studyNotes.$inferSelect;
@@ -61,3 +78,6 @@ export type InsertHealthLog = z.infer<typeof insertHealthLogSchema>;
 
 export type DailyActivity = typeof dailyActivities.$inferSelect;
 export type InsertDailyActivity = z.infer<typeof insertDailyActivitySchema>;
+
+export type Quote = typeof quotes.$inferSelect;
+export type SyncKey = typeof syncKeys.$inferSelect;

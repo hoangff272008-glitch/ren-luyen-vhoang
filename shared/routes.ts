@@ -145,6 +145,32 @@ export const api = {
         404: errorSchemas.notFound,
       },
     }
+  },
+  quotes: {
+    random: {
+      method: 'GET' as const,
+      path: '/api/quotes/random',
+      responses: {
+        200: z.custom<typeof studyNotes.$inferSelect>(), // Using studyNotes placeholder for now as schema matches
+      },
+    }
+  },
+  sync: {
+    create: {
+      method: 'POST' as const,
+      path: '/api/sync/create',
+      responses: {
+        201: z.object({ key: z.string() }),
+      },
+    },
+    load: {
+      method: 'GET' as const,
+      path: '/api/sync/:key',
+      responses: {
+        200: z.any(),
+        404: errorSchemas.notFound,
+      },
+    }
   }
 };
 

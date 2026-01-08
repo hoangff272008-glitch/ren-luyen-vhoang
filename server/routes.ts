@@ -127,5 +127,25 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // --- Quotes ---
+  app.get(api.quotes.random.path, async (req, res) => {
+    const quote = await storage.getRandomQuote();
+    res.json(quote);
+  });
+
+  // --- Sync ---
+  app.post(api.sync.create.path, async (req, res) => {
+    const data = await storage.getAllData();
+    const key = await storage.createSyncKey(data);
+    res.status(201).json({ key });
+  });
+
+  app.get(api.sync.load.path, async (req, res) => {
+    const data = await storage.getSyncData(req.params.key);
+    if (!data) return res.status(404).json({ message: "Không tìm thấy mã khóa" });
+    await storage.restoreData(data);
+    res.json({ message: "Đồng bộ thành công" });
+  });
+
   return httpServer;
 }
