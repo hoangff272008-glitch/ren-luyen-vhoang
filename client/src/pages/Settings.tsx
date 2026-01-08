@@ -1,14 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { Settings as SettingsIcon, Download, FileText, Calendar, Clock, CheckCircle2 } from "lucide-react";
+import { Settings as SettingsIcon, Download, FileText, Calendar, Clock, CheckCircle2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { api } from "@shared/routes";
 import type { DailyActivity } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { useState, useMemo } from "react";
 
 export default function Settings() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchDate, setSearchDate] = useState("");
+
   const { data: activities, isLoading } = useQuery<DailyActivity[]>({
     queryKey: [api.dailyActivities.list.path, "all"],
     queryFn: async () => {
@@ -18,9 +23,18 @@ export default function Settings() {
     }
   });
 
+  const filteredActivities = useMemo(() => {
+    if (!activities) return [];
+    return activities.filter(activity => {
+      const matchesText = activity.content.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDate = !searchDate || activity.date === searchDate;
+      return matchesText && matchesDate;
+    });
+  }, [activities, searchTerm, searchDate]);
+
   const exportData = () => {
-    if (!activities) return;
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activities, null, 2));
+    if (!filteredActivities) return;
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredActivities, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", `hoat-dong-hang-ngay-${format(new Date(), "dd-MM-yyyy")}.json`);
@@ -29,11 +43,13 @@ export default function Settings() {
     downloadAnchorNode.remove();
   };
 
-  const sortedActivities = activities?.sort((a, b) => {
-    const dateCompare = b.date.localeCompare(a.date);
-    if (dateCompare !== 0) return dateCompare;
-    return (a.time || "").localeCompare(b.time || "");
-  });
+  const sortedActivities = useMemo(() => {
+    return [...filteredActivities].sort((a, b) => {
+      const dateCompare = b.date.localeCompare(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      return (a.time || "").localeCompare(b.time || "");
+    });
+  }, [filteredActivities]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -51,19 +67,39 @@ export default function Settings() {
         <Button 
           size="lg" 
           onClick={exportData}
-          disabled={!activities || activities.length === 0}
+          disabled={!activities || filteredActivities.length === 0}
           className="rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25"
         >
-          <Download className="mr-2 h-5 w-5" /> Xuất dữ liệu (JSON)
+          <Download className="mr-2 h-5 w-5" /> Xuất dữ liệu lọc (JSON)
         </Button>
       </div>
 
       <Card className="glass-card">
-        <CardHeader>
+        <CardHeader className="space-y-4">
           <CardTitle className="flex items-center gap-2">
             <FileText className="text-primary" size={20} />
-            Tất cả hoạt động ({activities?.length || 0})
+            Bộ lọc & Tra cứu ({filteredActivities.length})
           </CardTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input 
+                placeholder="Tìm theo tên hoạt động..." 
+                className="pl-10 rounded-xl"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input 
+                type="date"
+                className="pl-10 rounded-xl"
+                value={searchDate}
+                onChange={(e) => setSearchDate(e.target.value)}
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -71,12 +107,17 @@ export default function Settings() {
               <div className="space-y-4">
                 {[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-white/30 animate-pulse" />)}
               </div>
-            ) : sortedActivities?.length === 0 ? (
+            ) : filteredActivities.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <p>Chưa có dữ liệu hoạt động nào.</p>
+                <p>Không tìm thấy hoạt động nào phù hợp với bộ lọc.</p>
+                {(searchTerm || searchDate) && (
+                  <Button variant="link" onClick={() => { setSearchTerm(""); setSearchDate(""); }} className="mt-2">
+                    Xóa bộ lọc
+                  </Button>
+                )}
               </div>
             ) : (
-              <div className="rounded-xl border border-white/20 overflow-hidden">
+              <div className="rounded-xl border border-white/20 overflow-hidden overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-white/50 dark:bg-white/5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     <tr>
@@ -87,7 +128,7 @@ export default function Settings() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
-                    {sortedActivities?.map((activity) => (
+                    {sortedActivities.map((activity) => (
                       <tr key={activity.id} className="hover:bg-white/30 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap font-medium flex items-center gap-2">
                           <Calendar size={14} className="text-muted-foreground" />
