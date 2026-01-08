@@ -135,7 +135,8 @@ export default function Dashboard() {
 
   const { data: quote } = useQuery({
     queryKey: [api.quotes.random.path],
-    queryFn: () => fetch(api.quotes.random.path).then(res => res.json())
+    queryFn: () => fetch(api.quotes.random.path).then(res => res.json()),
+    retry: false
   });
 
   const { data: allActivities, isLoading: activitiesLoading } = useQuery<DailyActivity[]>({

@@ -12,6 +12,7 @@ import Dashboard from "@/pages/Dashboard";
 import Study from "@/pages/Study";
 import Health from "@/pages/Health";
 import Activities from "@/pages/Activities";
+import Settings from "@/pages/Settings";
 import { ThemeProvider, useTheme } from "next-themes";
 import * as React from "react";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/study" component={Study} />
       <Route path="/health" component={Health} />
       <Route path="/activities" component={Activities} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );

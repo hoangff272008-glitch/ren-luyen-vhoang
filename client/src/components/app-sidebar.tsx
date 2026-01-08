@@ -1,4 +1,4 @@
-import { Home, BookOpen, Heart, CheckSquare, LogOut } from "lucide-react";
+import { Home, BookOpen, Heart, CheckSquare, LogOut, Settings } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -18,6 +18,7 @@ const menuItems = [
   { title: "Ghi chú học tập", icon: BookOpen, url: "/study" },
   { title: "Sức khỏe", icon: Heart, url: "/health" },
   { title: "Hoạt động", icon: CheckSquare, url: "/activities" },
+  { title: "Cài đặt", icon: Settings, url: "/settings" },
 ];
 
 export function AppSidebar() {
